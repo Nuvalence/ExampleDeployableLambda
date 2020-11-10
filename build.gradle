@@ -1,0 +1,61 @@
+plugins {
+    id 'java'
+}
+
+group 'io.nuvalence'
+
+sourceCompatibility = 1.8
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    compile group: 'com.amazonaws', name: 'aws-lambda-java-events', version: '2.2.7'
+    compile group: 'com.amazonaws', name: 'aws-lambda-java-core', version: '1.1.0'
+
+    testCompile group: 'junit', name: 'junit', version: '4.12'
+}
+
+version '1.0.1'
+
+
+ext.s3Bucket = 'examplefunctionbucket'
+def prefix = project.hasProperty("stackPrefix") ? project.property("stackPrefix") : "local"
+ext.s3Prefix = "ExampleLambda/${prefix}/"
+ext.stackName = "${prefix}-ExampleLambdaDeployment"
+
+def zipName = "${project.name}-${project.version}.zip"
+
+task buildZip(type: Zip) {
+    from compileJava
+    from processResources
+    archiveFileName=zipName
+    into('lib') {
+        from configurations.runtimeClasspath
+    }
+}
+
+task publishToS3(type: Exec) {
+    dependsOn buildZip
+    commandLine 'aws', 's3', 'cp',
+            '--sse', 'AES256',
+            buildZip.outputs.files.first().path,
+            "s3://${s3Bucket}/${s3Prefix}${zipName}"
+}
+
+task deployStack(type: Exec) {
+    dependsOn publishToS3
+    commandLine 'aws', 'cloudformation', 'deploy',
+            '--stack-name', stackName,
+            '--template-file', "${project.rootDir}/infrastructure/template.yml",
+            '--capabilities', 'CAPABILITY_NAMED_IAM',
+            '--parameter-overrides',
+            "S3Bucket=${s3Bucket}",
+            "S3Key=${s3Prefix}",
+            "ZipName=${zipName}"
+    doLast {
+        println "Stack Successfully Created."
+    }
+}
+

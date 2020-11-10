@@ -1,0 +1,41 @@
+AWSTemplateFormatVersion: 2010-09-09
+Parameters:
+  S3Key:
+    Type: 'String'
+  S3Bucket:
+    Type: 'String'
+  ZipName:
+    Type: 'String'
+Resources:
+  ExampleLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${AWS::StackName}-ExampleLambda-Role"
+      Description: "Role used to execute the ExampleLambda"
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action:
+              - sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+        Version: 2012-10-17
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+  ExampleLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-ExampleLambda"
+      Code:
+        S3Bucket: !Ref S3Bucket
+        S3Key: !Sub "${S3Key}${ZipName}"
+      Handler: io.nuvalence.examples.ExampleLambdaHandler::handleRequest
+      Runtime: java8
+      MemorySize: 512
+      Role: !Sub 'arn:aws:iam::${AWS::AccountId}:role/${ExampleLambdaRole}'
+      Timeout: 15
+Outputs:
+  LambdaName:
+    Description: "Example lambda name output"
+    Value: !Ref ExampleLambda
